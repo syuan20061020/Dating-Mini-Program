@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>约会邀请</title>
+<style>
+/* ===== Reset & Base ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  background:#fdf5f7;
+  color:#3d2b31;
+}
+
+/* ===== Design Tokens ===== */
+:root{
+  --bg:#fdf5f7;
+  --fg:#3d2b31;
+  --card:#f7eff2;
+  --primary:#e8617e;
+  --primary-fg:#fff;
+  --muted-fg:#8c737b;
+  --border:#e2d3d8;
+  --accent:#f0e4e8;
+  --accent-fg:#6b3d4a;
+  --destructive:#e74c3c;
+  --yellow:#f9a825;
+  --radius-sm:12px;
+  --radius-md:16px;
+  --radius-lg:24px;
+  --radius-full:9999px;
+}
+
+/* ===== App Container ===== */
+#app{
+  width:100%;height:100%;
+  position:relative;
+  overflow:hidden;
+}
+
+/* ===== Page Container ===== */
+.page{
+  position:absolute;
+  inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 16px;
+  background:linear-gradient(180deg,rgba(232,97,126,0.04) 0%,var(--bg) 40%,rgba(232,97,126,0.04) 100%);
+  overflow-y:auto;
+  transition:opacity 0.3s ease;
+}
+.page.hidden{opacity:0;pointer-events:none}
+.page.active{opacity:1;pointer-events:auto}
+
+/* ===== Back Button ===== */
+.back-btn{
+  position:absolute;top:16px;left:16px;
+  width:40px;height:40px;
+  border-radius:50%;
+  border:1px solid rgba(226,211,216,0.5);
+  background:rgba(247,239,242,0.8);
+  backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  transition:background 0.15s;
+  z-index:10;
+}
+.back-btn:hover{background:var(--card)}
+.back-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.back-btn svg{width:20px;height:20px;color:var(--fg)}
+
+/* ===== Illustration Area (Page 1) ===== */
+.illust-area{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:32px;
+}
+.dashed-ring{
+  position:absolute;
+  border-radius:50%;
+  border:2px dashed rgba(232,97,126,0.25);
+}
+.dashed-ring.outer{width:176px;height:176px;animation:spin 20s linear infinite}
+.dashed-ring.inner{width:144px;height:144px;border-width:1px;border-color:rgba(232,97,126,0.2);animation:spin-reverse 15s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spin-reverse{to{transform:rotate(-360deg)}}
+
+.sparkle{
+  position:absolute;
+  font-size:20px;
+  animation:pulse 2s ease-in-out infinite;
+}
+.sparkle:nth-child(3){top:-8px;right:20px}
+.sparkle:nth-child(4){bottom:10px;left:16px;animation-delay:0.5s}
+@keyframes pulse{0%,100%{opacity:0.4;transform:scale(0.9)}50%{opacity:1;transform:scale(1.1)}}
+
+.heart-img{
+  position:relative;z-index:10;
+  width:112px;height:112px;
+  border-radius:24px;
+  object-fit:cover;
+  box-shadow:0 4px 16px rgba(232,97,126,0.2);
+}
+
+/* ===== Typography ===== */
+.page-title{
+  font-size:24px;font-weight:700;
+  text-align:center;
+  margin-bottom:8px;
+  color:var(--fg);
+}
+.page-subtitle{
+  font-size:14px;color:var(--muted-fg);
+  text-align:center;
+  margin-bottom:40px;
+}
+
+/* ===== Buttons ===== */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  border:none;cursor:pointer;
+  font-family:inherit;
+  transition:transform 0.15s,box-shadow 0.15s;
+  white-space:nowrap;
+}
+.btn:active{transform:scale(0.95)}
+.btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+.btn-primary{
+  background:var(--primary);color:var(--primary-fg);
+  border-radius:var(--radius-full);
+  font-weight:600;
+  box-shadow:0 2px 8px rgba(232,97,126,0.3);
+}
+.btn-primary:hover{box-shadow:0 4px 16px rgba(232,97,126,0.4)}
+
+.btn-outline{
+  background:var(--card);color:var(--fg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-full);
+  font-weight:500;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+.btn-outline:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+
+.btn-yes-initial{padding:14px 40px;font-size:18px}
+.btn-no-initial{padding:14px 40px;font-size:18px}
+.btn-yes-centered{padding:16px 48px;font-size:20px;font-weight:700;box-shadow:0 4px 20px rgba(232,97,126,0.35)}
+.btn-no-chase{padding:12px 32px;font-size:16px}
+
+/* ===== Button Area (Page 1) ===== */
+.btn-area{
+  width:100%;max-width:400px;
+  min-height:210px;
+  position:relative;
+  overflow:hidden;
+}
+.btn-area-initial{
+  display:flex;align-items:center;justify-content:center;
+  gap:24px;
+  min-height:210px;
+}
+
+/* Chase buttons */
+.btn-chase{
+  position:absolute;
+  transition:left 0.36s ease,top 0.36s ease,transform 0.36s ease;
+}
+.btn-chase.no-transition{transition:none !important}
+
+/* ===== Confirm Page ===== */
+.emoji-big{font-size:72px;margin-bottom:24px}
+.emoji-big.pop-in{animation:popIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards}
+@keyframes popIn{0%{transform:scale(0)}100%{transform:scale(1)}}
+
+.fade-up{animation:fadeUp 0.5s ease forwards;opacity:0}
+.fade-up.d1{animation-delay:0.4s}
+.fade-up.d2{animation-delay:0.5s}
+.fade-up.d3{animation-delay:0.6s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== Form Inputs ===== */
+.form-group{width:100%;max-width:384px}
+.form-label{display:block;font-size:14px;font-weight:500;color:var(--fg);margin-bottom:8px}
+.form-input{
+  width:100%;padding:12px 16px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--fg);
+  font-size:16px;font-family:inherit;
+  transition:border-color 0.15s,box-shadow 0.15s;
+  -webkit-appearance:none;
+}
+.form-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(232,97,126,0.2)}
+.form-error{color:var(--destructive);font-size:14px;text-align:center;margin-top:8px}
+
+/* ===== Menu Grid ===== */
+.menu-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  width:100%;max-width:512px;
+}
+.menu-card{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:16px 8px;
+  border-radius:var(--radius-md);
+  border:1px solid rgba(226,211,216,0.5);
+  background:var(--card);
+  cursor:pointer;
+  position:relative;
+  transition:all 0.2s;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+.menu-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08);transform:translateY(-2px)}
+.menu-card:active{transform:scale(0.97)}
+.menu-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.menu-card.selected{
+  background:rgba(232,97,126,0.12);
+  border-color:var(--primary);
+  box-shadow:0 2px 12px rgba(232,97,126,0.15);
+}
+.menu-emoji{font-size:32px;margin-bottom:8px}
+.menu-name{font-size:14px;font-weight:600;color:var(--fg);text-align:center;line-height:1.3}
+.menu-desc{font-size:12px;color:var(--muted-fg);text-align:center;margin-top:4px;line-height:1.3}
+.menu-check{
+  position:absolute;top:8px;right:8px;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:var(--primary);
+  display:flex;align-items:center;justify-content:center;
+}
+.menu-check svg{width:12px;height:12px;color:var(--primary-fg)}
+
+/* ===== Card Page ===== */
+.summary-card{
+  width:100%;max-width:384px;
+  background:var(--card);
+  border-radius:var(--radius-md);
+  border:1px solid rgba(226,211,216,0.5);
+  padding:24px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+.summary-row{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 0;
+}
+.summary-row+.summary-row{border-top:1px solid rgba(226,211,216,0.4)}
+.summary-icon{font-size:24px;flex-shrink:0}
+.summary-label{font-size:11px;color:var(--muted-fg);font-weight:500;text-transform:uppercase;letter-spacing:0.05em}
+.summary-value{font-size:18px;font-weight:600;color:var(--fg)}
+.summary-desc{font-size:14px;color:var(--muted-fg)}
+
+.btn-save{
+  width:100%;max-width:384px;
+  margin-top:32px;
+  padding:14px;
+  border-radius:var(--radius-full);
+  background:var(--yellow);
+  color:#fff;
+  font-size:18px;font-weight:600;
+  border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 2px 8px rgba(249,168,37,0.3);
+  transition:transform 0.15s,box-shadow 0.15s,opacity 0.15s;
+  font-family:inherit;
+}
+.btn-save:hover{box-shadow:0 4px 16px rgba(249,168,37,0.4)}
+.btn-save:active{transform:scale(0.98)}
+.btn-save:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+.btn-save:disabled{opacity:0.6;cursor:not-allowed}
+.btn-save .spinner{
+  width:20px;height:20px;
+  border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin 0.6s linear infinite;
+}
+
+/* ===== Toast ===== */
+.toast-container{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  z-index:9999;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  pointer-events:none;
+}
+.toast{
+  padding:12px 24px;
+  border-radius:var(--radius-full);
+  background:var(--fg);
+  color:#fff;
+  font-size:14px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.15);
+  animation:toastIn 0.3s ease,toastOut 0.3s ease 2s forwards;
+  pointer-events:auto;
+}
+.toast.success{background:#27ae60}
+.toast.error{background:var(--destructive)}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-12px)}}
+
+/* ===== Responsive ===== */
+@media(min-width:768px){
+  .page-title{font-size:30px}
+  .page-subtitle{font-size:16px}
+  .btn-yes-initial,.btn-no-initial{font-size:20px;padding:16px 48px}
+  .btn-yes-centered{font-size:24px;padding:18px 56px}
+  .btn-no-chase{font-size:18px;padding:14px 36px}
+  .menu-card{padding:20px 12px}
+  .menu-emoji{font-size:36px}
+  .menu-name{font-size:16px}
+}
+
+/* ===== Scrollbar ===== */
+.page::-webkit-scrollbar{width:4px}
+.page::-webkit-scrollbar-track{background:transparent}
+.page::-webkit-scrollbar-thumb{background:rgba(232,97,126,0.2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ===== Heart SVG Data URIs =====
+function createHeartSVG(bgColor, heartColor, size) {
+  const s = size || 200;
+  const r = Math.round(s * 0.15);
+  return 'data:image/svg+xml,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}">` +
+    `<rect width="${s}" height="${s}" rx="${r}" fill="${bgColor}"/>` +
+    `<g transform="translate(${s/2},${s*0.48}) scale(${s/240})">` +
+    `<path d="M0 35 C0 12 -35 -25 -58 12 C-82 48 -35 82 0 105 C35 82 82 48 58 12 C35 -25 0 12 0 35Z" fill="${heartColor}"/>` +
+    `</g></svg>`
+  );
+}
+
+const HEART_IMG_1 = createHeartSVG('#fce4ec', '#e8617e', 200);
+const HEART_IMG_2 = createHeartSVG('#fce4ec', '#e8617e', 200);
+
+// ===== State =====
+const NO_TEXTS = ['不要', '再想想嘛', '点不到我', '真的不要吗'];
+const MENU_ITEMS = [
+  { id:1, name:'火锅', desc:'热气腾腾共享美味', emoji:'🍲' },
+  { id:2, name:'烤肉', desc:'滋滋作响肉食自由', emoji:'🥩' },
+  { id:3, name:'日料寿司', desc:'精致新鲜仪式感', emoji:'🍣' },
+  { id:4, name:'西餐牛排', desc:'浪漫优雅氛围', emoji:'🥂' },
+  { id:5, name:'韩式料理', desc:'部队锅炸鸡啤酒', emoji:'🍗' },
+  { id:6, name:'泰餐', desc:'酸辣开胃异域风情', emoji:'🍜' },
+  { id:7, name:'烤鱼', desc:'鲜香入味下饭神器', emoji:'🐟' },
+  { id:8, name:'甜品下午茶', desc:'轻松甜蜜不尴尬', emoji:'🍰' },
+  { id:9, name:'串串香', desc:'丰富选择热辣过瘾', emoji:'🍢' },
+];
+
+const state = {
+  page: 'invite',
+  history: [],
+  // Page 1
+  dontClicked: false,
+  cornerIndex: 0,
+  noTextIdx: 0,
+  animating: false,
+  // Page 3
+  date: '',
+  time: '17:00',
+  // Page 4
+  selectedMenuId: null,
+  // Page 5
+  menu: null,
+};
+
+function getTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+}
+function getToday() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Initialize date
+state.date = getTomorrow();
+
+// ===== Navigation =====
+function navigate(page, data) {
+  if (data) Object.assign(state, data);
+  state.history.push(state.page);
+  state.page = page;
+  window.location.hash = '#' + (page === 'invite' ? '/' : page);
+  render();
+}
+
+function goBack() {
+  if (state.history.length > 0) {
+    state.page = state.history.pop();
+    window.location.hash = '#' + (state.page === 'invite' ? '/' : state.page);
+    render();
+  }
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  type = type || '';
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(function() {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }, 2400);
+}
+
+// ===== Corner Position =====
+function getCornerPos(idx, cw, ch, bw, bh) {
+  var pad = 10;
+  switch (idx) {
+    case 0: return { left: pad, top: pad };
+    case 1: return { left: cw - bw - pad, top: pad };
+    case 2: return { left: cw - bw - pad, top: ch - bh - pad };
+    case 3: return { left: pad, top: ch - bh - pad };
+    default: return { left: pad, top: pad };
+  }
+}
+
+// ===== Render =====
+function render() {
+  var app = document.getElementById('app');
+  app.innerHTML = '';
+
+  switch (state.page) {
+    case 'invite': renderInvite(app); break;
+    case 'confirm': renderConfirm(app); break;
+    case 'datetime': renderDateTime(app); break;
+    case 'menu': renderMenu(app); break;
+    case 'card': renderCard(app); break;
+  }
+}
+
+// ===== Page 1: Invite =====
+function renderInvite(app) {
+  var page = document.createElement('div');
+  page.className = 'page active';
+  page.innerHTML =
+    '<div class="illust-area">' +
+      '<div class="dashed-ring outer"></div>' +
+      '<div class="dashed-ring inner"></div>' +
+      '<span class="sparkle" aria-hidden="true">✨</span>' +
+      '<span class="sparkle" aria-hidden="true">✨</span>' +
+      '<img class="heart-img" src="' + HEART_IMG_1 + '" alt="爱心插画">' +
+    '</div>' +
+    '<h1 class="page-title">可以和我一起约会吗？</h1>' +
+    '<p class="page-subtitle">我已经准备好啦，就等你点头~</p>' +
+    '<div class="btn-area" id="btn-area"></div>';
+
+  app.appendChild(page);
+
+  var btnArea = document.getElementById('btn-area');
+  renderBtnArea(btnArea);
+}
+
+function renderBtnArea(container) {
+  container.innerHTML = '';
+
+  if (!state.dontClicked) {
+    // Initial state: two buttons side by side
+    var wrap = document.createElement('div');
+    wrap.className = 'btn-area-initial';
+
+    var yesBtn = document.createElement('button');
+    yesBtn.className = 'btn btn-primary btn-yes-initial';
+    yesBtn.textContent = '愿意';
+    yesBtn.setAttribute('aria-label', '愿意');
+    yesBtn.addEventListener('click', function() { navigate('confirm'); });
+
+    var noBtn = document.createElement('button');
+    noBtn.className = 'btn btn-outline btn-no-initial';
+    noBtn.textContent = '不要';
+    noBtn.setAttribute('aria-label', '不要');
+    noBtn.addEventListener('click', handleNoClick);
+
+    wrap.appendChild(yesBtn);
+    wrap.appendChild(noBtn);
+    container.appendChild(wrap);
+  } else {
+    // Chase state
+    var yesBtn2 = document.createElement('button');
+    yesBtn2.className = 'btn btn-primary btn-yes-centered btn-chase';
+    yesBtn2.textContent = '愿意';
+    yesBtn2.setAttribute('aria-label', '愿意');
+    yesBtn2.style.cssText = 'left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;';
+    yesBtn2.addEventListener('click', function() { navigate('confirm'); });
+
+    var noBtn2 = document.createElement('button');
+    noBtn2.className = 'btn btn-outline btn-no-chase btn-chase';
+    noBtn2.id = 'no-chase-btn';
+    noBtn2.textContent = NO_TEXTS[state.noTextIdx];
+    noBtn2.setAttribute('aria-label', NO_TEXTS[state.noTextIdx]);
+    noBtn2.addEventListener('click', handleNoClick);
+
+    container.appendChild(yesBtn2);
+    container.appendChild(noBtn2);
+
+    // Position no button at current corner
+    requestAnimationFrame(function() {
+      positionNoBtn();
+    });
+  }
+}
+
+function positionNoBtn() {
+  var container = document.getElementById('btn-area');
+  var noBtn = document.getElementById('no-chase-btn');
+  if (!container || !noBtn) return;
+
+  var cRect = container.getBoundingClientRect();
+  var nRect = noBtn.getBoundingClientRect();
+  var corner = getCornerPos(state.cornerIndex, cRect.width, cRect.height, nRect.width, nRect.height);
+
+  noBtn.style.left = corner.left + 'px';
+  noBtn.style.top = corner.top + 'px';
+  noBtn.style.transform = 'none';
+}
+
+function handleNoClick(e) {
+  if (state.animating) return;
+
+  var container = document.getElementById('btn-area');
+  if (!container) return;
+
+  var cRect = container.getBoundingClientRect();
+
+  if (!state.dontClicked) {
+    // First click: transition to chase mode
+    state.dontClicked = true;
+    state.animating = true;
+
+    // Re-render to get absolute-positioned buttons
+    renderBtnArea(container);
+
+    // After render, animate to positions
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        var noBtn = document.getElementById('no-chase-btn');
+        if (!noBtn) { state.animating = false; return; }
+
+        var nRect = noBtn.getBoundingClientRect();
+        var corner = getCornerPos(0, cRect.width, cRect.height, nRect.width, nRect.height);
+
+        noBtn.style.left = corner.left + 'px';
+        noBtn.style.top = corner.top + 'px';
+        noBtn.style.transform = 'none';
+
+        state.cornerIndex = 0;
+        setTimeout(function() { state.animating = false; }, 370);
+      });
+    });
+  } else {
+    // Subsequent clicks: move to different corner
+    var diagonalMap = { 0:2, 1:3, 2:0, 3:1 };
+    var preferred = diagonalMap[state.cornerIndex];
+    var nextCorner = (preferred !== undefined && preferred !== state.cornerIndex) ? preferred : (state.cornerIndex + 1) % 4;
+
+    state.noTextIdx = (state.noTextIdx + 1) % NO_TEXTS.length;
+    state.animating = true;
+
+    var noBtn2 = document.getElementById('no-chase-btn');
+    if (noBtn2) {
+      noBtn2.textContent = NO_TEXTS[state.noTextIdx];
+      noBtn2.setAttribute('aria-label', NO_TEXTS[state.noTextIdx]);
+
+      var nRect2 = noBtn2.getBoundingClientRect();
+      var corner2 = getCornerPos(nextCorner, cRect.width, cRect.height, nRect2.width, nRect2.height);
+
+      noBtn2.style.left = corner2.left + 'px';
+      noBtn2.style.top = corner2.top + 'px';
+      noBtn2.style.transform = 'none';
+    }
+
+    state.cornerIndex = nextCorner;
+    setTimeout(function() { state.animating = false; }, 370);
+  }
+}
+
+// Resize handler
+var resizeTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function() {
+    if (state.page === 'invite' && state.dontClicked && !state.animating) {
+      var noBtn = document.getElementById('no-chase-btn');
+      if (noBtn) {
+        noBtn.classList.add('no-transition');
+        positionNoBtn();
+        requestAnimationFrame(function() {
+          noBtn.classList.remove('no-transition');
+        });
+      }
+    }
+  }, 150);
+});
+
+// ===== Page 2: Confirm =====
+function renderConfirm(app) {
+  var page = document.createElement('div');
+  page.className = 'page active';
+  page.innerHTML =
+    '<button class="back-btn" aria-label="返回" id="back-btn">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' +
+    '</button>' +
+    '<div class="emoji-big pop-in" aria-hidden="true">🥰</div>' +
+    '<h1 class="page-title fade-up d1">太好啦！</h1>' +
+    '<p class="page-subtitle fade-up d2" style="margin-bottom:40px">那我们定个时间吧~</p>' +
+    '<button class="btn btn-primary fade-up d3" style="padding:14px 48px;font-size:18px" aria-label="继续" id="continue-btn">继续</button>';
+
+  app.appendChild(page);
+
+  document.getElementById('back-btn').addEventListener('click', goBack);
+  document.getElementById('continue-btn').addEventListener('click', function() {
+    navigate('datetime');
+  });
+}
+
+// ===== Page 3: DateTime =====
+function renderDateTime(app) {
+  var page = document.createElement('div');
+  page.className = 'page active';
+  page.innerHTML =
+    '<button class="back-btn" aria-label="返回" id="back-btn">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' +
+    '</button>' +
+    '<h1 class="page-title fade-up d1">选个时间吧</h1>' +
+    '<p class="page-subtitle fade-up d2" style="margin-bottom:32px">你什么时候有空呢？</p>' +
+    '<div class="form-group fade-up d3" style="margin-bottom:20px">' +
+      '<label class="form-label" for="date-input">📅 约会日期</label>' +
+      '<input class="form-input" type="date" id="date-input" min="' + getToday() + '" value="' + state.date + '">' +
+    '</div>' +
+    '<div class="form-group fade-up d3" style="margin-bottom:8px">' +
+      '<label class="form-label" for="time-input">⏰ 约会时间</label>' +
+      '<input class="form-input" type="time" id="time-input" value="' + state.time + '">' +
+    '</div>' +
+    '<div class="form-error" id="form-error" style="display:none"></div>' +
+    '<button class="btn btn-primary fade-up d3" style="width:100%;max-width:384px;padding:14px;font-size:18px;margin-top:16px" aria-label="继续" id="continue-btn">继续</button>';
+
+  app.appendChild(page);
+
+  document.getElementById('back-btn').addEventListener('click', goBack);
+
+  var dateInput = document.getElementById('date-input');
+  var timeInput = document.getElementById('time-input');
+  var errorEl = document.getElementById('form-error');
+
+  dateInput.addEventListener('change', function() {
+    state.date = this.value;
+    errorEl.style.display = 'none';
+  });
+  timeInput.addEventListener('change', function() {
+    state.time = this.value;
+    errorEl.style.display = 'none';
+  });
+
+  document.getElementById('continue-btn').addEventListener('click', function() {
+    var d = dateInput.value;
+    var t = timeInput.value;
+    var today = getToday();
+
+    if (!d) { errorEl.textContent = '请选择约会日期'; errorEl.style.display = 'block'; return; }
+    if (d < today) { errorEl.textContent = '约会日期不能早于今天哦~'; errorEl.style.display = 'block'; return; }
+    if (!t) { errorEl.textContent = '请选择约会时间'; errorEl.style.display = 'block'; return; }
+
+    state.date = d;
+    state.time = t;
+    navigate('menu');
+  });
+}
+
+// ===== Page 4: Menu =====
+function renderMenu(app) {
+  var page = document.createElement('div');
+  page.className = 'page active';
+  page.style.justifyContent = 'flex-start';
+  page.style.paddingTop = '72px';
+
+  var html =
+    '<button class="back-btn" aria-label="返回" id="back-btn">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' +
+    '</button>' +
+    '<h1 class="page-title">想吃什么？</h1>' +
+    '<p class="page-subtitle">选一个你最想吃的吧~</p>' +
+    '<div class="menu-grid" id="menu-grid">';
+
+  MENU_ITEMS.forEach(function(item, i) {
+    var isSel = state.selectedMenuId === item.id;
+    html +=
+      '<button class="menu-card' + (isSel ? ' selected' : '') + '" data-id="' + item.id + '" aria-label="选择' + item.name + '" aria-pressed="' + isSel + '" style="animation:fadeUp 0.4s ease forwards;opacity:0;animation-delay:' + (0.3 + i * 0.05) + 's">' +
+        (isSel ? '<span class="menu-check"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
+        '<span class="menu-emoji" aria-hidden="true">' + item.emoji + '</span>' +
+        '<span class="menu-name">' + item.name + '</span>' +
+        '<span class="menu-desc">' + item.desc + '</span>' +
+      '</button>';
+  });
+
+  html += '</div>';
+  page.innerHTML = html;
+  app.appendChild(page);
+
+  document.getElementById('back-btn').addEventListener('click', goBack);
+
+  var cards = page.querySelectorAll('.menu-card');
+  cards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      var id = parseInt(this.getAttribute('data-id'));
+      if (state.selectedMenuId === id) return;
+      state.selectedMenuId = id;
+      var item = MENU_ITEMS.find(function(m) { return m.id === id; });
+      state.menu = item;
+
+      // Update UI
+      cards.forEach(function(c) { c.classList.remove('selected'); });
+      this.classList.add('selected');
+
+      // Remove old check icons
+      page.querySelectorAll('.menu-check').forEach(function(ck) { ck.remove(); });
+
+      // Add check icon
+      var check = document.createElement('span');
+      check.className = 'menu-check';
+      check.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      this.appendChild(check);
+
+      setTimeout(function() {
+        navigate('card');
+      }, 300);
+    });
+
+    card.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.click();
+      }
+    });
+  });
+}
+
+// ===== Page 5: Card =====
+function renderCard(app) {
+  var page = document.createElement('div');
+  page.className = 'page active';
+  page.style.justifyContent = 'flex-start';
+  page.style.paddingTop = '72px';
+
+  var m = state.menu;
+  var menuHTML = '';
+  if (m) {
+    menuHTML =
+      '<div class="summary-row">' +
+        '<span class="summary-icon" aria-hidden="true">' + m.emoji + '</span>' +
+        '<div>' +
+          '<p class="summary-label">MENU</p>' +
+          '<p class="summary-value">' + m.name + '</p>' +
+          '<p class="summary-desc">' + m.desc + '</p>' +
+        '</div>' +
+      '</div>';
+  }
+
+  page.innerHTML =
+    '<button class="back-btn" aria-label="返回" id="back-btn">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' +
+    '</button>' +
+    '<div style="display:flex;justify-content:center;margin-bottom:24px">' +
+      '<img class="heart-img" src="' + HEART_IMG_2 + '" alt="爱心" style="animation:popIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards">' +
+    '</div>' +
+    '<h1 class="page-title" style="animation:fadeUp 0.4s ease 0.2s forwards;opacity:0">我们的约会</h1>' +
+    '<div class="summary-card" style="animation:fadeUp 0.4s ease 0.3s forwards;opacity:0;margin-top:32px">' +
+      '<div class="summary-row">' +
+        '<span class="summary-icon" aria-hidden="true">📅</span>' +
+        '<div>' +
+          '<p class="summary-label">DATE</p>' +
+          '<p class="summary-value">' + (state.date || '未选择') + '</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="summary-row">' +
+        '<span class="summary-icon" aria-hidden="true">⏰</span>' +
+        '<div>' +
+          '<p class="summary-label">TIME</p>' +
+          '<p class="summary-value">' + (state.time || '未选择') + '</p>' +
+        '</div>' +
+      '</div>' +
+      menuHTML +
+    '</div>' +
+    '<button class="btn-save" id="save-btn" aria-label="保存卡片" style="animation:fadeUp 0.4s ease 0.5s forwards;opacity:0">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>' +
+      '保存卡片' +
+    '</button>' +
+    '<p style="font-size:12px;color:var(--muted-fg);text-align:center;margin-top:12px">点击保存，生成约会卡片图片</p>';
+
+  app.appendChild(page);
+
+  document.getElementById('back-btn').addEventListener('click', goBack);
+  document.getElementById('save-btn').addEventListener('click', generateAndSave);
+}
+
+// ===== Canvas Card Generation =====
+function drawHeart(ctx, cx, cy, size) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  var s = size / 120;
+  ctx.scale(s, s);
+  ctx.beginPath();
+  ctx.moveTo(0, 35);
+  ctx.bezierCurveTo(0, 12, -35, -25, -58, 12);
+  ctx.bezierCurveTo(-82, 48, -35, 82, 0, 105);
+  ctx.bezierCurveTo(35, 82, 82, 48, 58, 12);
+  ctx.bezierCurveTo(35, -25, 0, 12, 0, 35);
+  ctx.closePath();
+  ctx.fillStyle = '#e91e63';
+  ctx.fill();
+  ctx.restore();
+}
+
+function generateAndSave() {
+  var btn = document.getElementById('save-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 生成中...';
+
+  setTimeout(function() {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1440;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas not supported');
+
+      // Pink gradient background
+      var gradient = ctx.createLinearGradient(0, 0, 0, 1440);
+      gradient.addColorStop(0, '#fce4ec');
+      gradient.addColorStop(0.4, '#f8bbd0');
+      gradient.addColorStop(1, '#f48fb1');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1080, 1440);
+
+      // Decorative dots
+      ctx.fillStyle = 'rgba(233, 30, 99, 0.08)';
+      for (var i = 0; i < 30; i++) {
+        var dx = Math.random() * 1080;
+        var dy = Math.random() * 1440;
+        var dr = 20 + Math.random() * 40;
+        ctx.beginPath();
+        ctx.arc(dx, dy, dr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Heart
+      drawHeart(ctx, 540, 300, 160);
+
+      // Title
+      ctx.fillStyle = '#880e4f';
+      ctx.font = 'bold 72px "Noto Sans SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('我们的约会', 540, 520);
+
+      // Divider
+      ctx.strokeStyle = 'rgba(233, 30, 99, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.moveTo(200, 580);
+      ctx.lineTo(880, 580);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // DATE
+      ctx.fillStyle = '#4a1525';
+      ctx.font = 'bold 48px "Noto Sans SC", sans-serif';
+      ctx.fillText('📅  DATE', 540, 680);
+      ctx.fillStyle = '#880e4f';
+      ctx.font = '56px "Noto Sans SC", sans-serif';
+      ctx.fillText(state.date || '未选择', 540, 760);
+
+      // TIME
+      ctx.fillStyle = '#4a1525';
+      ctx.font = 'bold 48px "Noto Sans SC", sans-serif';
+      ctx.fillText('⏰  TIME', 540, 880);
+      ctx.fillStyle = '#880e4f';
+      ctx.font = '56px "Noto Sans SC", sans-serif';
+      ctx.fillText(state.time || '未选择', 540, 960);
+
+      // MENU
+      if (state.menu) {
+        ctx.fillStyle = '#4a1525';
+        ctx.font = 'bold 48px "Noto Sans SC", sans-serif';
+        ctx.fillText('🍽️  MENU', 540, 1100);
+        ctx.fillStyle = '#880e4f';
+        ctx.font = '56px "Noto Sans SC", sans-serif';
+        ctx.fillText(state.menu.emoji + ' ' + state.menu.name, 540, 1180);
+        ctx.fillStyle = '#6b2d3e';
+        ctx.font = '36px "Noto Sans SC", sans-serif';
+        ctx.fillText(state.menu.desc, 540, 1250);
+      }
+
+      // Footer
+      ctx.fillStyle = 'rgba(136, 14, 79, 0.5)';
+      ctx.font = '28px "Noto Sans SC", sans-serif';
+      ctx.fillText('期待与你相见 ❤️', 540, 1380);
+
+      // Export
+      canvas.toBlob(function(blob) {
+        if (!blob) {
+          showToast('生成图片失败', 'error');
+          resetSaveBtn(btn);
+          return;
+        }
+
+        var file = new File([blob], '约会卡片.png', { type: 'image/png' });
+
+        // Try system share
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ title: '我们的约会', files: [file] })
+            .then(function() {
+              showToast('分享成功！', 'success');
+              resetSaveBtn(btn);
+            })
+            .catch(function() {
+              downloadBlob(blob, btn);
+            });
+        } else {
+          downloadBlob(blob, btn);
+        }
+      }, 'image/png');
+
+    } catch (err) {
+      showToast('保存失败，请重试', 'error');
+      resetSaveBtn(btn);
+    }
+  }, 100);
+}
+
+function downloadBlob(blob, btn) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '约会卡片.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('卡片已下载！', 'success');
+  resetSaveBtn(btn);
+}
+
+function resetSaveBtn(btn) {
+  btn.disabled = false;
+  btn.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>' +
+    '保存卡片';
+}
+
+// ===== Hash Routing =====
+function handleHash() {
+  var hash = window.location.hash.replace('#', '') || '/';
+  var pageMap = {
+    '/': 'invite',
+    '/confirm': 'confirm',
+    '/datetime': 'datetime',
+    '/menu': 'menu',
+    '/card': 'card',
+  };
+  var target = pageMap[hash] || 'invite';
+
+  if (target !== state.page) {
+    state.history = [];
+    state.page = target;
+    render();
+  }
+}
+
+window.addEventListener('hashchange', handleHash);
+
+// ===== Init =====
+handleHash();
+</script>
+</body>
+</html>
