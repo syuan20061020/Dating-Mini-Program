@@ -20,17 +20,21 @@ jobs:
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: 配置Node环境
+      - name: 配置Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: 安装依赖并打包
-        run: |
-          npm install --ignore-scripts
-          npx vite build
+      - name: 设置npm镜像
+        run: npm config set registry https://registry.npmmirror.com
 
-      - name: 上传打包产物dist
+      - name: 安装依赖
+        run: npm install --ignore-scripts
+
+      - name: Vite打包
+        run: npx vite build
+
+      - name: 上传dist产物
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dateProgramHTML/dist
